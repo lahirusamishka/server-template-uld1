@@ -1,0 +1,43 @@
+services:
+  app:
+    image: ghcr.io/add-repo-path/app:$VERSIONS
+    env_file:
+      - app.env
+    ports:
+      - 7000:80
+    volumes:
+      - /docker-apps/crane-app/storage:/var/www/html/storage/app/public
+      - /docker-apps/crane-app/logs:/var/www/html/storage/logs
+    deploy:
+      replicas: 3
+      update_config:
+        parallelism: 1
+        delay: 10s
+      restart_policy:
+        condition: on-failure
+        max_attempts: 5
+
+  queue:
+    image: ghcr.io/add-repo-path/app:$VERSIONS
+    command: php /var/www/html/artisan queue:work --verbose --tries=3 --timeout=90
+    env_file:
+      - app.env
+    volumes:
+      - /docker-apps/crane-app/storage:/var/www/html/storage/app/public
+      - /docker-apps/crane-app/logs:/var/www/html/storage/logs
+    depends_on:
+      - redis
+    healthcheck:
+      disable: true
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+        max_attempts: 5
+
+  redis:
+    image: redis:alpine
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
